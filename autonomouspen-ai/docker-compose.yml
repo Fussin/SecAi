@@ -26,6 +26,16 @@ services:
       timeout: 5s
       retries: 5
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+
   scanner:
     build:
       context: .
@@ -54,6 +64,19 @@ services:
       - postgres
       - redis
 
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/ai/Dockerfile
+    command: celery -A python.worker.app worker -l info
+    environment:
+      - DATABASE_URL=postgresql://autonomouspen:${DB_PASSWORD:-secretpassword}@postgres/autonomouspen
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redispassword}@redis:6379
+    depends_on:
+      - redis
+      - postgres
+
 volumes:
   postgres_data:
   redis_data:
+  elasticsearch_data:

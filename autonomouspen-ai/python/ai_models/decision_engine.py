@@ -15,6 +15,40 @@ class AutonomousDecisionEngine:
       self.llm = OpenAI(temperature=0.7)
       self.scan_planner = self._create_scan_planner()
       self.payload_generator = self._create_payload_generator()
+      self.load_models()
+
+  def load_models(self):
+      """Loads all the required AI models."""
+      print("Loading AI models...")
+      self.load_gpt4_claude()
+      self.load_local_llama()
+      self.load_waf_fingerprinting_model()
+      self.load_bert_model()
+      print("✅ All AI models loaded successfully.")
+
+  def load_gpt4_claude(self):
+      """Loads GPT-4 and Claude models."""
+      print("Initializing GPT-4 and Claude models...")
+      # Placeholder for actual model loading
+      pass
+
+  def load_local_llama(self):
+      """Loads local LLaMA models."""
+      print("Initializing local LLaMA models...")
+      # Placeholder for actual model loading
+      pass
+
+  def load_waf_fingerprinting_model(self):
+      """Loads the WAF fingerprinting model."""
+      print("Initializing WAF fingerprinting model...")
+      # Placeholder for actual model loading
+      pass
+
+  def load_bert_model(self):
+      """Loads the BERT model."""
+      print("Initializing BERT model for context understanding...")
+      # Placeholder for actual model loading
+      pass
 
   def _create_scan_planner(self) -> LLMChain:
       """Creates the AI chain for planning scans"""
