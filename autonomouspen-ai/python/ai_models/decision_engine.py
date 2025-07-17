@@ -15,6 +15,8 @@ class AutonomousDecisionEngine:
       self.llm = OpenAI(temperature=0.7)
       self.scan_planner = self._create_scan_planner()
       self.payload_generator = self._create_payload_generator()
+      self.attack_surface_analyzer = self._create_attack_surface_analyzer()
+      self.waf_bypass_planner = self._create_waf_bypass_planner()
       self.load_models()
 
   def load_models(self):
@@ -49,6 +51,22 @@ class AutonomousDecisionEngine:
       print("Initializing BERT model for context understanding...")
       # Placeholder for actual model loading
       pass
+
+  def _create_attack_surface_analyzer(self) -> LLMChain:
+      """Creates the AI chain for analyzing the attack surface."""
+      prompt = PromptTemplate(
+          input_variables=["recon_data"],
+          template="""
+          You are an expert at analyzing attack surfaces.
+
+          Given the following reconnaissance data:
+          {recon_data}
+
+          What are the top 5 most likely vulnerabilities?
+          Output as a JSON list of strings.
+          """
+      )
+      return LLMChain(llm=self.llm, prompt=prompt)
 
   def _create_scan_planner(self) -> LLMChain:
       """Creates the AI chain for planning scans"""
@@ -92,6 +110,27 @@ Output as JSON array.
       )
       return LLMChain(llm=self.llm, prompt=prompt)
 
+  def _create_waf_bypass_planner(self) -> LLMChain:
+      """Creates the AI chain for planning WAF bypasses."""
+      prompt = PromptTemplate(
+          input_variables=["waf_name", "vulnerability_type"],
+          template="""
+          You are an expert at bypassing WAFs.
+
+          Generate a list of bypass techniques for a {waf_name} WAF for a {vulnerability_type} vulnerability.
+
+          Output as a JSON list of strings.
+          """
+      )
+      return LLMChain(llm=self.llm, prompt=prompt)
+
+  def analyze_attack_surface(self, recon_data: Dict[str, Any]) -> List[str]:
+      """Analyzes the attack surface and returns a list of likely vulnerabilities."""
+      result = self.attack_surface_analyzer.run(
+          recon_data=json.dumps(recon_data)
+      )
+      return json.loads(result)
+
   def plan_scan(self, target: Dict[str, Any]) -> Dict[str, Any]:
       """Plans the scanning strategy for a target"""
       result = self.scan_planner.run(
@@ -106,6 +145,14 @@ Output as JSON array.
           vulnerability_type=vuln_type,
           context=context,
           waf_detected=str(waf)
+      )
+      return json.loads(result)
+
+  def plan_waf_bypass(self, waf_name: str, vulnerability_type: str) -> List[str]:
+      """Plans a WAF bypass strategy."""
+      result = self.waf_bypass_planner.run(
+          waf_name=waf_name,
+          vulnerability_type=vulnerability_type
       )
       return json.loads(result)
 
