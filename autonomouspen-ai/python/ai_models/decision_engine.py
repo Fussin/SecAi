@@ -17,6 +17,7 @@ class AutonomousDecisionEngine:
       self.payload_generator = self._create_payload_generator()
       self.attack_surface_analyzer = self._create_attack_surface_analyzer()
       self.waf_bypass_planner = self._create_waf_bypass_planner()
+      self.xss_payload_generator = self._create_xss_payload_generator()
       self.load_models()
 
   def load_models(self):
@@ -124,6 +125,24 @@ Output as JSON array.
       )
       return LLMChain(llm=self.llm, prompt=prompt)
 
+  def _create_xss_payload_generator(self) -> LLMChain:
+      """Creates the AI chain for generating XSS payloads."""
+      prompt = PromptTemplate(
+          input_variables=["context"],
+          template="""
+          You are an expert at generating XSS payloads.
+
+          Given the following context:
+          {context}
+
+          Generate 50+ context-specific payloads.
+          Include filter bypasses (e.g., without script tags, without parentheses, polyglots).
+
+          Output as a JSON list of strings.
+          """
+      )
+      return LLMChain(llm=self.llm, prompt=prompt)
+
   def analyze_attack_surface(self, recon_data: Dict[str, Any]) -> List[str]:
       """Analyzes the attack surface and returns a list of likely vulnerabilities."""
       result = self.attack_surface_analyzer.run(
@@ -153,6 +172,13 @@ Output as JSON array.
       result = self.waf_bypass_planner.run(
           waf_name=waf_name,
           vulnerability_type=vulnerability_type
+      )
+      return json.loads(result)
+
+  def generate_xss_payloads(self, context: str) -> List[str]:
+      """Generates XSS payloads for a given context."""
+      result = self.xss_payload_generator.run(
+          context=context
       )
       return json.loads(result)
 
