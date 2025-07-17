@@ -18,6 +18,7 @@ class AutonomousDecisionEngine:
       self.attack_surface_analyzer = self._create_attack_surface_analyzer()
       self.waf_bypass_planner = self._create_waf_bypass_planner()
       self.xss_payload_generator = self._create_xss_payload_generator()
+      self.poc_builder = self._create_poc_builder()
       self.load_models()
 
   def load_models(self):
@@ -143,6 +144,24 @@ Output as JSON array.
       )
       return LLMChain(llm=self.llm, prompt=prompt)
 
+  def _create_poc_builder(self) -> LLMChain:
+      """Creates the AI chain for building PoCs."""
+      prompt = PromptTemplate(
+          input_variables=["vulnerability_type", "parameter"],
+          template="""
+          You are an expert at building Proof of Concepts.
+
+          Create a cURL command for a {vulnerability_type} vulnerability in the parameter '{parameter}'.
+
+          Output as a JSON object with the following keys:
+          - curl_command
+          - python_script
+          - burp_suite_request
+          - browser_steps
+          """
+      )
+      return LLMChain(llm=self.llm, prompt=prompt)
+
   def analyze_attack_surface(self, recon_data: Dict[str, Any]) -> List[str]:
       """Analyzes the attack surface and returns a list of likely vulnerabilities."""
       result = self.attack_surface_analyzer.run(
@@ -179,6 +198,14 @@ Output as JSON array.
       """Generates XSS payloads for a given context."""
       result = self.xss_payload_generator.run(
           context=context
+      )
+      return json.loads(result)
+
+  def build_poc(self, vulnerability_type: str, parameter: str) -> Dict[str, str]:
+      """Builds a PoC for a given vulnerability."""
+      result = self.poc_builder.run(
+          vulnerability_type=vulnerability_type,
+          parameter=parameter
       )
       return json.loads(result)
 
