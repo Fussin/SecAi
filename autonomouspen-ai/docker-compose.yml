@@ -1,6 +1,56 @@
 version: '3.8'
 
 services:
+  load_balancer:
+    image: haproxy:2.8
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./haproxy:/usr/local/etc/haproxy:ro
+    depends_on:
+      - go_worker
+      - python_worker
+
+  go_worker:
+    build:
+      context: .
+      dockerfile: docker/scanner/Dockerfile
+    deploy:
+      replicas: 5
+
+  python_worker:
+    build:
+      context: .
+      dockerfile: docker/ai/Dockerfile
+    deploy:
+      replicas: 5
+
+  playwright_worker:
+    image: mcr.microsoft.com/playwright:v1.40.0-focal
+    deploy:
+      replicas: 2
+
+  ai_gpu_node:
+    build:
+      context: .
+      dockerfile: docker/ai/Dockerfile
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ai_cpu_node:
+    build:
+      context: .
+      dockerfile: docker/ai/Dockerfile
+    deploy:
+      replicas: 2
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -9,74 +59,25 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secretpassword}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U autonomouspen"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispassword}
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+  minio:
+    image: minio/minio
     ports:
-      - "9200:9200"
-
-  scanner:
-    build:
-      context: .
-      dockerfile: docker/scanner/Dockerfile
-    deploy:
-      replicas: 3
+      - "9000:9000"
+    volumes:
+      - minio_data:/data
     environment:
-      - DATABASE_URL=postgresql://autonomouspen:${DB_PASSWORD:-secretpassword}@postgres/autonomouspen
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redispassword}@redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  ai_engine:
-    build:
-      context: .
-      dockerfile: docker/ai/Dockerfile
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - DATABASE_URL=postgresql://autonomouspen:${DB_PASSWORD:-secretpassword}@postgres/autonomouspen
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redispassword}@redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  celery_worker:
-    build:
-      context: .
-      dockerfile: docker/ai/Dockerfile
-    command: celery -A python.worker.app worker -l info
-    environment:
-      - DATABASE_URL=postgresql://autonomouspen:${DB_PASSWORD:-secretpassword}@postgres/autonomouspen
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redispassword}@redis:6379
-    depends_on:
-      - redis
-      - postgres
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data
 
 volumes:
   postgres_data:
   redis_data:
-  elasticsearch_data:
+  minio_data:
