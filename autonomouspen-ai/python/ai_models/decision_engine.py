@@ -19,6 +19,7 @@ class AutonomousDecisionEngine:
       self.waf_bypass_planner = self._create_waf_bypass_planner()
       self.xss_payload_generator = self._create_xss_payload_generator()
       self.poc_builder = self._create_poc_builder()
+      self.report_writer = self._create_report_writer()
       self.load_models()
 
   def load_models(self):
@@ -162,6 +163,29 @@ Output as JSON array.
       )
       return LLMChain(llm=self.llm, prompt=prompt)
 
+  def _create_report_writer(self) -> LLMChain:
+      """Creates the AI chain for writing reports."""
+      prompt = PromptTemplate(
+          input_variables=["finding_data"],
+          template="""
+          You are an expert at writing vulnerability reports.
+
+          Given the following finding data:
+          {finding_data}
+
+          Write a professional vulnerability report with the following sections:
+          - Executive Summary
+          - Technical Details
+          - Proof of Concept
+          - Impact Analysis
+          - Remediation Recommendations
+          - References
+
+          Output as a JSON object.
+          """
+      )
+      return LLMChain(llm=self.llm, prompt=prompt)
+
   def analyze_attack_surface(self, recon_data: Dict[str, Any]) -> List[str]:
       """Analyzes the attack surface and returns a list of likely vulnerabilities."""
       result = self.attack_surface_analyzer.run(
@@ -206,6 +230,13 @@ Output as JSON array.
       result = self.poc_builder.run(
           vulnerability_type=vulnerability_type,
           parameter=parameter
+      )
+      return json.loads(result)
+
+  def write_report(self, finding_data: Dict[str, Any]) -> Dict[str, str]:
+      """Writes a vulnerability report."""
+      result = self.report_writer.run(
+          finding_data=json.dumps(finding_data)
       )
       return json.loads(result)
 
